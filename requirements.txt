@@ -1,0 +1,6 @@
+dlib
+sklearn
+numpy
+scipy
+opencv-python
+matplotlib
