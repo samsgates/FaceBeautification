@@ -1,0 +1,5 @@
+<RCC>
+  <qresource prefix="res">
+    <file>ui/res/reset.png</file>
+  </qresource>
+</RCC>
