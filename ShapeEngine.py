@@ -1,5 +1,4 @@
 import cv2
-import dlib
 from sklearn.svm import SVC
 from numpy import matrix as mat
 from sklearn.decomposition import pca
@@ -15,13 +14,22 @@ USE_PCA = True
 
 class ShapeEngine:
 
+    LANDMARK_OUTLINE = 1
+    LANDMARK_LEFT_EYEBROW = 2
+    LANDMARK_RIGHT_EYEBROW = 3
+    LANDMARK_NOSE = 4
+    LANDMARK_LEFT_EYE = 5
+    LANDMARK_RIGHT_EYE = 6
+    LANDMARK_MOUTH = 7
+
     def __init__(self):
         self.matrix = []
         self.edges = []
         self.triangles = []
+        self.bound_triangles = []
         self.svm_clf = None
         self.pca_model = None
-        self.knn_samples = None
+        self.knn_data = None
 
     @staticmethod
     def read_image(filename):
@@ -34,92 +42,109 @@ class ShapeEngine:
         return img, faces
 
     @staticmethod
-    def construct_triangulation(rect, points):
-        sub_div = cv2.Subdiv2D(rect)
-
-        for p in points:
-            sub_div.insert(p)
+    def get_bound_point(img, idx):
+        rect = (0, 0, img.shape[1], img.shape[0])
         w = rect[2] - rect[0]
         h = rect[3] - rect[1]
-        sub_div.insert((rect[0], rect[1]))
-        sub_div.insert((rect[0] + w / 2, rect[1]))
-        sub_div.insert((rect[0] + w - 1, rect[1]))
-        sub_div.insert((rect[0] + w - 1, rect[1] + h / 2))
-        sub_div.insert((rect[0] + w - 1, rect[1] + h - 1))
-        sub_div.insert((rect[0] + w / 2, rect[1] + h - 1))
-        sub_div.insert((rect[0], rect[1] + h - 1))
-        sub_div.insert((rect[0], rect[1] + h / 2))
+        idx = -idx - 1
+        if idx == 0:
+            return rect[0], rect[1]
+        if idx == 1:
+            return rect[0] + int(w / 2), rect[1]
+        if idx == 2:
+            return rect[0] + w - 1, rect[1]
+        if idx == 3:
+            return rect[0] + w - 1, rect[1] + int(h / 2)
+        if idx == 4:
+            return rect[0] + w - 1, rect[1] + h - 1
+        if idx == 5:
+            return rect[0] + int(w / 2), rect[1] + h - 1
+        if idx == 6:
+            return rect[0], rect[1] + h - 1
+        if idx == 7:
+            return rect[0], rect[1] + int(h / 2)
+
+    @staticmethod
+    def construct_triangulation(img, points):
+        rect = (0, 0, img.shape[1], img.shape[0])
+        sub_div = cv2.Subdiv2D(rect)
+        bound_points = [ShapeEngine.get_bound_point(img, -(i + 1)) for i in range(8)]
+        for point in bound_points:
+            sub_div.insert(point)
+        for p in points:
+            sub_div.insert(p)
 
         triangle_list = sub_div.getTriangleList()
         triangles = []
-
+        bound_triangles = []
         for t in triangle_list:
             pt = [(t[0], t[1]), (t[2], t[3]), (t[4], t[5])]
             ind = []
-            for j in range(0, 3):
-                for k in range(0, len(points)):
+            for j in range(3):
+                idx = None
+                for k in range(len(points)):
                     if abs(pt[j][0] - points[k][0]) < 1e-6 and abs(pt[j][1] - points[k][1]) < 1e-6:
-                        ind.append(k)
+                        idx = k
+                        break
+                if idx is None:
+                    for k in range(len(bound_points)):
+                        if abs(pt[j][0] - bound_points[k][0]) < 1e-6 and abs(pt[j][1] - bound_points[k][1]) < 1e-6:
+                            idx = -(k + 1)
+                            break
+                if idx is None:
+                    continue
+                ind.append(idx)
             if len(ind) == 3:
-                triangles.append((ind[0], ind[1], ind[2]))
-        return triangles
+                if all(map(lambda x: x >= 0, ind)):
+                    triangles.append(ind)
+                else:
+                    bound_triangles.append(ind)
+        return triangles, bound_triangles
 
-    @staticmethod
-    def get_landmark_id(idx):
+    def get_landmark_id(self, idx):
         if 0 <= idx <= 16:
-            return 1
+            return self.LANDMARK_OUTLINE
         if 17 <= idx <= 21:
-            return 2
+            return self.LANDMARK_LEFT_EYEBROW
         if 22 <= idx <= 26:
-            return 3
+            return self.LANDMARK_RIGHT_EYEBROW
         if 27 <= idx <= 35:
-            return 4
+            return self.LANDMARK_NOSE
         if 36 <= idx <= 41:
-            return 5
+            return self.LANDMARK_LEFT_EYE
         if 42 <= idx <= 47:
-            return 6
+            return self.LANDMARK_RIGHT_EYE
         if 48 <= idx <= 67:
-            return 7
+            return self.LANDMARK_MOUTH
 
-    def save_face_models(self, matrix_filename, triangle_filename, standard_pic):
+    def save_face_models(self, face_model_filename, standard_pic):
         img, faces = self.read_image(standard_pic)
         rect, landmarks = faces[0]
-        triangles = self.construct_triangulation((0, 0, img.shape[0], img.shape[1]), landmarks)
+        triangles, bound_triangles = self.construct_triangulation(img, landmarks)
         matrix = [[0 for _ in range(LANDMARK_NUM)] for _ in range(LANDMARK_NUM)]
-        with open(triangle_filename, 'w') as out:
+        with open(face_model_filename, 'wb') as model:
             for a, b, c in triangles:
                 matrix[a][b] = matrix[b][a] = 10 if self.get_landmark_id(a) == self.get_landmark_id(b) else 1
                 matrix[a][c] = matrix[c][a] = 10 if self.get_landmark_id(a) == self.get_landmark_id(c) else 1
                 matrix[c][b] = matrix[b][c] = 10 if self.get_landmark_id(c) == self.get_landmark_id(b) else 1
-                out.write('%d %d %d\n' % (a, b, c))
-        with open(matrix_filename, 'w') as out:
-            for i in range(LANDMARK_NUM):
-                out.write(' '.join(map(str, matrix[i])) + '\n')
+            pickle.dump({
+                'triangles': triangles,
+                'bound_triangles': bound_triangles,
+                'matrix': matrix
+            }, model)
 
-    def load_face_models(self, matrix_filename, triangle_filename):
-        self.matrix = []
-        with open(matrix_filename) as fin:
-            for line in fin:
-                item = line.strip().split()
-                if len(item) != LANDMARK_NUM:
-                    continue
-                self.matrix.append(list(map(int, item)))
+    def load_face_models(self, face_model_filename):
+        with open(face_model_filename, 'rb') as model:
+            model_save = pickle.load(model)
+            self.matrix = model_save['matrix']
+            self.triangles = model_save['triangles']
+            self.bound_triangles = model_save['bound_triangles']
         assert len(self.matrix) == LANDMARK_NUM
         self.edges = []
         for i in range(LANDMARK_NUM):
             for j in range(0, i):
                 if self.matrix[i][j]:
                     self.edges.append((i, j))
-        self.triangles = []
-        with open(triangle_filename) as fin:
-            for line in fin:
-                item = line.strip().split()
-                if len(item) != 3:
-                    continue
-                self.triangles.append(list(map(int, item)))
-
-    def get_connect_edges(self):
-        return self.edges
 
     def get_area(self, landmarks):
         area = 0
@@ -206,37 +231,48 @@ class ShapeEngine:
         print(result.success)
         return list(self.pca_recover(result.x))
 
-    def knn_save_model(self, paths, labels, knn_filename):
-        vectors = []
-        for i, path in enumerate(paths):
+    def knn_save_model(self, male_paths, male_labels, female_paths, female_labels, knn_filename):
+        male_data = []
+        for i, (path, label) in enumerate(zip(male_paths, male_labels)):
             if i % 10 == 1:
-                print('KNN Save Parsing:', i)
+                print('KNN Save Parsing Male:', i)
             _, faces = self.read_image(path)
             if len(faces) == 0:
-                print('Face Align Failed:', path)
+                print('Male Face Align Failed:', path)
                 continue
             _, landmarks = faces[0]
-            vectors.append(self.get_distance_vector(landmarks))
+            male_data.append((self.get_distance_vector(landmarks), label))
+        female_data = []
+        for i, (path, label) in enumerate(zip(female_paths, female_labels)):
+            if i % 10 == 1:
+                print('KNN Save Parsing Female:', i)
+            _, faces = self.read_image(path)
+            if len(faces) == 0:
+                print('Female Face Align Failed:', path)
+                continue
+            _, landmarks = faces[0]
+            female_data.append((self.get_distance_vector(landmarks), label))
         with open(knn_filename, 'wb') as out:
             pickle.dump({
-                'vectors': vectors,
-                'labels': labels
+                'male': male_data,
+                'female': female_data
             }, out)
 
     def knn_load_model(self, knn_filename):
         with open(knn_filename, 'rb') as fin:
-            self.knn_samples = pickle.load(fin)
+            self.knn_data = pickle.load(fin)
 
-    def knn_generate(self, dv, k=5):
+    def knn_generate(self, dv, gender, k=5):
+        assert gender in ('male', 'female')
         ws = []
-        for i, (dv_, label) in enumerate(zip(self.knn_samples['vectors'], self.knn_samples['labels'])):
+        for i, (dv_, label) in enumerate(self.knn_data[gender]):
             ws.append((label / np.linalg.norm(np.subtract(dv, dv_)), i))
         ws.sort(reverse=True)
         r = np.zeros(len(dv))
         wt = 0
         for i in range(k):
             wt += ws[i][0]
-            r += ws[i][0] * np.array(self.knn_samples['vectors'][ws[i][1]])
+            r += ws[i][0] * np.array(self.knn_data[gender][ws[i][1]][0])
         return list(r / wt)
 
     def _cal_mse(self, landmarks_, dv):
@@ -292,8 +328,8 @@ class ShapeEngine:
                 u = u * v
                 v = 2 * v
                 landmarks_ = landmarks_tmp
-            print("iteration = %d, abs(mse - lase_mse) = abs(%.8f - %.8f) = %.8f"
-                  % (iteration, mse, lase_mse, abs(mse - lase_mse)))
+            # print("iteration = %d, abs(mse - lase_mse) = abs(%.8f - %.8f) = %.8f"
+            #       % (iteration, mse, lase_mse, abs(mse - lase_mse)))
             if abs(mse - lase_mse) < 0.000001:
                 break
             lase_mse = mse
@@ -304,14 +340,13 @@ class ShapeEngine:
         warp_mat = cv2.getAffineTransform(np.float32(src_tri), np.float32(dst_tri))
         dst = cv2.warpAffine(src, warp_mat, (size[0], size[1]), None, flags=cv2.INTER_LINEAR,
                              borderMode=cv2.BORDER_REFLECT_101)
-
         return dst
 
     def face_morphing(self, img, landmarks, landmarks_):
         img_morph = img.copy()
-        for a, b, c in self.triangles:
-            t1 = [landmarks[a], landmarks[b], landmarks[c]]
-            t2 = [landmarks_[a], landmarks_[b], landmarks_[c]]
+        for triangle in self.triangles + self.bound_triangles:
+            t1 = list(map(lambda x: landmarks[x] if x >= 0 else self.get_bound_point(img, x), triangle))
+            t2 = list(map(lambda x: landmarks_[x] if x >= 0 else self.get_bound_point(img, x), triangle))
             r1 = cv2.boundingRect(np.float32([t1]))
             r2 = cv2.boundingRect(np.float32([t2]))
             t1_rect = []
@@ -327,3 +362,62 @@ class ShapeEngine:
             img_morph[r2[1]:r2[1] + r2[3], r2[0]:r2[0] + r2[2]] = \
                 img_morph[r2[1]:r2[1] + r2[3], r2[0]:r2[0] + r2[2]] * (1 - mask) + img_rect * mask
         return img_morph
+
+    def some_landmarks_only(self, landmarks, landmarks_, id_set):
+        r = landmarks.copy()
+        for i in range(LANDMARK_NUM):
+            if self.get_landmark_id(i) in id_set:
+                r[i] = landmarks_[i]
+        return r
+
+    def some_landmarks_out(self, landmarks, landmarks_, id_set):
+        r = landmarks.copy()
+        for i in range(LANDMARK_NUM):
+            if self.get_landmark_id(i) not in id_set:
+                r[i] = landmarks_[i]
+        return r
+
+    def eyes_only(self, landmarks, landmarks_):
+        return self.some_landmarks_only(landmarks, landmarks_, (self.LANDMARK_LEFT_EYE, self.LANDMARK_RIGHT_EYE))
+
+    def outline_only(self, landmarks, landmarks_):
+        return self.some_landmarks_only(
+            landmarks, landmarks_,
+            (self.LANDMARK_OUTLINE, self.LANDMARK_LEFT_EYEBROW, self.LANDMARK_RIGHT_EYEBROW))
+
+    def make_bigger_eyes(self, landmarks, rate):
+        distance_vector = []
+        for i, j in self.edges:
+            distance = ((landmarks[i][0] - landmarks[j][0]) ** 2 + (landmarks[i][1] - landmarks[j][1]) ** 2) ** 0.5
+
+            f = (self.get_landmark_id(i) == self.LANDMARK_LEFT_EYE) \
+                + (self.get_landmark_id(j) == self.LANDMARK_LEFT_EYE)
+            if f == 0:
+                f = (self.get_landmark_id(i) == self.LANDMARK_RIGHT_EYE) \
+                    + (self.get_landmark_id(j) == self.LANDMARK_RIGHT_EYE)
+            if f == 1:
+                distance = distance * (1 - rate)
+            if f == 2:
+                distance = distance * (1 + rate)
+            distance_vector.append(distance)
+        sqrt_area = self.get_area(landmarks) ** 0.5
+        dv = [distance / sqrt_area for distance in distance_vector]
+        return self.get_landmarks_from_dv(dv, landmarks)
+
+    def make_thinner_outline(self, landmarks, rate):
+        def check(x):
+            return 0 <= x <= 16
+        distance_vector = []
+        for i, j in self.edges:
+            distance = ((landmarks[i][0] - landmarks[j][0]) ** 2 + (landmarks[i][1] - landmarks[j][1]) ** 2) ** 0.5
+
+            # f = (self.get_landmark_id(i) == self.LANDMARK_OUTLINE) \
+            #     + (self.get_landmark_id(j) == self.LANDMARK_OUTLINE)
+
+            f = check(i) + check(j)
+            if f == 1:
+                distance = distance * (1 - rate)
+            distance_vector.append(distance)
+        sqrt_area = self.get_area(landmarks) ** 0.5
+        dv = [distance / sqrt_area for distance in distance_vector]
+        return self.get_landmarks_from_dv(dv, landmarks)

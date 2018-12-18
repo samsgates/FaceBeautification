@@ -4,8 +4,7 @@ import utils
 
 engine = ShapeEngine()
 
-CONNECTIVITY_MATRIX_FILE = 'model/matrix.txt'
-TRIANGLE_LIST_FILE = 'model/triangle.txt'
+FACE_MODEL_FILE = 'model/face.model'
 SVM_MODEL_FILE = 'model/svm.model'
 KNN_MODEL_FILE = 'model/knn.model'
 
@@ -22,19 +21,41 @@ def load_data_file(path, filename_format):
 
 
 def show_image(path):
-    edges = engine.get_connect_edges()
+    # edges = engine.edges
 
     img, faces = engine.read_image(path)
-    rect, landmarks = faces[0]
+    _, landmarks = faces[0]
 
-    for i, j in edges:
-        cv2.line(img, landmarks[i], landmarks[j],
-                 (255, 0, 0) if engine.get_landmark_id(i) == engine.get_landmark_id(j) else (0, 0, 255),
-                 1, cv2.LINE_AA)
+    # def get_color(idx1, idx2):
+    #     f = (engine.get_landmark_id(idx1) == engine.LANDMARK_LEFT_EYE) \
+    #         + (engine.get_landmark_id(idx2) == engine.LANDMARK_LEFT_EYE)
+    #     if f == 0:
+    #         f = (engine.get_landmark_id(idx1) == engine.LANDMARK_RIGHT_EYE) \
+    #             + (engine.get_landmark_id(idx2) == engine.LANDMARK_RIGHT_EYE)
+    #     if f == 0:
+    #         return 0, 0, 255
+    #     if f == 1:
+    #         return 255, 0, 0
+    #     if f == 2:
+    #         return 0, 255, 0
+    #     return 255, 255, 255
+    #
+    # for i, j in edges:
+    #     cv2.line(img, landmarks[i], landmarks[j], get_color(i, j), 1, cv2.LINE_AA)
 
-    print(len(engine.get_distance_vector(landmarks)))
-    cv2.imshow('img', img)
-    cv2.waitKey()
+    for a, b, c in engine.triangles:
+        cv2.line(img, landmarks[a], landmarks[b], (0, 0, 255), 1, cv2.LINE_AA)
+        cv2.line(img, landmarks[a], landmarks[c], (0, 0, 255), 1, cv2.LINE_AA)
+        cv2.line(img, landmarks[c], landmarks[b], (0, 0, 255), 1, cv2.LINE_AA)
+
+    for triangle in engine.bound_triangles:
+        ps = list(map(lambda x: landmarks[x] if x >= 0 else engine.get_bound_point(img, x), triangle))
+        # print(ps[0], ps[1], ps[2])
+        cv2.line(img, ps[0], ps[1], (0, 255, 0), 1, cv2.LINE_AA)
+        cv2.line(img, ps[0], ps[2], (0, 255, 0), 1, cv2.LINE_AA)
+        cv2.line(img, ps[2], ps[1], (0, 255, 0), 1, cv2.LINE_AA)
+
+    utils.plt_show(img)
 
 
 def init_svm(train=False, test=False):
@@ -61,48 +82,72 @@ def init_svm(train=False, test=False):
 def init_knn(train=False):
     if train:
         # paths, labels = load_data_file('Data/train.txt', 'Data/img/%s.jpg')
-        paths, labels = load_data_file('Data/train_images.txt', 'Data/Images/%s')
-        male_paths = []
-        male_labels = []
-        for path, label in zip(paths, labels):
-            if path[13] == 'M':
-                male_paths.append(path)
-                male_labels.append(label)
-        print('Path num:', len(male_paths))
-        engine.knn_save_model(paths, labels, KNN_MODEL_FILE)
+        # paths, labels = load_data_file('Data/train_images.txt', 'Data/Images/%s')
+        male_paths, male_labels = load_data_file('Data/male_labels.txt', '%s')
+        female_paths, female_labels = load_data_file('Data/female_labels.txt', '%s')
+        print('Male Path num:', len(male_paths))
+        print('Female Path num:', len(female_paths))
+        engine.knn_save_model(male_paths, male_labels, female_paths, female_labels, KNN_MODEL_FILE)
     engine.knn_load_model(KNN_MODEL_FILE)
 
 
-def knn_beautify(filename):
+def knn_beautify(filename, gender):
     img, faces = engine.read_image(filename)
-    rect, landmarks = faces[0]
-    dv_ = engine.knn_generate(engine.get_distance_vector(landmarks))
+    _, landmarks = faces[0]
+    dv_ = engine.knn_generate(engine.get_distance_vector(landmarks), gender)
     landmarks_ = engine.get_landmarks_from_dv(dv_, landmarks)
+    # landmarks_ = engine.outline_only(landmarks, landmarks_)
+    # landmarks_ = engine.some_landmarks_out(landmarks, landmarks_, (engine.LANDMARK_MOUTH, ))
     img_morph = engine.face_morphing(img, landmarks, landmarks_)
     return img, img_morph
 
 
 def svm_beautify(filename):
     img, faces = engine.read_image(filename)
-    rect, landmarks = faces[0]
+    _, landmarks = faces[0]
     dv_ = engine.svm_generate(engine.get_distance_vector(landmarks))
     landmarks_ = engine.get_landmarks_from_dv(dv_, landmarks)
     img_morph = engine.face_morphing(img, landmarks, landmarks_)
     return img, img_morph
 
 
-def main():
-    # engine.save_face_models(CONNECTIVITY_MATRIX_FILE, TRIANGLE_LIST_FILE, 'Data/img/001.jpg')
-    engine.load_face_models(CONNECTIVITY_MATRIX_FILE, TRIANGLE_LIST_FILE)
+def make_bigger_eyes(filename, rate):
+    img, faces = engine.read_image(filename)
+    _, landmarks = faces[0]
+    landmarks_ = engine.make_bigger_eyes(landmarks, rate)
+    landmarks_ = engine.eyes_only(landmarks, landmarks_)
+    img_morph = engine.face_morphing(img, landmarks, landmarks_)
+    return img, img_morph
 
-    # show_image('Data/img/002.jpg')
+
+def make_thinner_outline(filename, rate):
+    img, faces = engine.read_image(filename)
+    _, landmarks = faces[0]
+    landmarks_ = engine.make_thinner_outline(landmarks, rate)
+    landmarks_ = engine.outline_only(landmarks, landmarks_)
+    img_morph = engine.face_morphing(img, landmarks, landmarks_)
+    return img, img_morph
+
+
+def main():
+    # engine.save_face_models(FACE_MODEL_FILE, 'Data/img/005.jpg')
+    engine.load_face_models(FACE_MODEL_FILE)
+
+    # img_filename = 'Data/img/005.jpg'
+    img_filename = 'Test/0007_01.jpg'
+
+    # show_image(img_filename)
 
     # init_svm(train=True, test=True)
-    init_svm(train=False, test=False)
-    img, img_morph = svm_beautify('Data/img/134.jpg')
+    # init_svm(train=False, test=False)
+    # img, img_morph = svm_beautify(img_filename)
 
-    # init_knn(train=False)
-    # img, img_morph = knn_beautify('Data/img/005.jpg')
+    init_knn(train=False)
+    img, img_morph = knn_beautify(img_filename, 'male')
+
+    # img, img_morph = make_bigger_eyes(img_filename, 0.05)
+
+    # img, img_morph = make_thinner_outline(img_filename, 0.1)
 
     utils.plt_show(img)
     utils.plt_show(img_morph)
