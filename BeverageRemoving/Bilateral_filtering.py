@@ -34,6 +34,11 @@ def Bilateral_filter(img, x, y, w, h):
     cv2.imshow("demo", img_cliped)
     cv2.waitKey(0)
 
+
+def remove_beverage(img):
+    return cv2.bilateralFilter(src=img, d=0, sigmaColor=100, sigmaSpace=15)
+
+
 def Bilateral_filter_old(img, x, y, w, h, size):
     """
     双边滤波器的手动实现

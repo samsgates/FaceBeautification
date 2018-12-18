@@ -37,15 +37,25 @@ class MyLabel(QLabel):
         self.y_value = int(iy * self.img_ratio - y + y_value)
 
     def mousePressEvent(self, event):
-        self.setCursor(Qt.ClosedHandCursor)
-        self.last_cursor = event.pos()
+        if event.button() == Qt.LeftButton:
+            self.setCursor(Qt.ClosedHandCursor)
+            self.last_cursor = event.pos()
+        else:
+            event.ignore()
 
     def mouseMoveEvent(self, event):
-        p = event.pos() - self.last_cursor
-        self.move_.emit(p.x(), p.y())
+        if self.last_cursor is not None:
+            p = event.pos() - self.last_cursor
+            self.move_.emit(p.x(), p.y())
+        else:
+            event.ignore()
 
     def mouseReleaseEvent(self, event):
-        self.setCursor(Qt.OpenHandCursor)
+        if event.button() == Qt.LeftButton:
+            self.setCursor(Qt.OpenHandCursor)
+            self.last_cursor = None
+        else:
+            event.ignore()
 
     def wheelEvent(self, event):
         self.zoom.emit(event.angleDelta().y() > 0, event.x(), event.y())
@@ -97,17 +107,16 @@ class FaceBeautificationGUI(QMainWindow, Ui_FaceBeautificationGUI):
         self.m_knn_apply.clicked.connect(self.mb_knn_apply)
         self.m_bigger_eyes_apply.clicked.connect(self.mb_bigger_eyes_apply)
         self.m_thinner_outline_apply.clicked.connect(self.mb_thinner_outline_apply)
+        self.m_remove_beverage.clicked.connect(self.mb_remove_beverage)
 
         self.m_bigger_eyes_rate.valueChanged.connect(self.display_rate(self.m_bigger_eyes_rate_label))
         self.m_thinner_outline_rate.valueChanged.connect(self.display_rate(self.m_thinner_outline_rate_label))
 
         self.m_bigger_eyes_rate.setValue(5)
         self.m_thinner_outline_rate.setValue(5)
-        self.m_knn_apply.setEnabled(False)
-        self.m_bigger_eyes_apply.setEnabled(False)
-        self.m_thinner_outline_apply.setEnabled(False)
         self.m_action_save.setEnabled(False)
         self.m_action_reset.setEnabled(False)
+        self.m_options.setEnabled(False)
         self.check_state()
 
     @staticmethod
@@ -123,11 +132,10 @@ class FaceBeautificationGUI(QMainWindow, Ui_FaceBeautificationGUI):
         if not self.engine.load_image(filename):
             QMessageBox().information(self, "Error", "No face found in the image.", QMessageBox.Ok)
             return
-        self.m_knn_apply.setEnabled(True)
-        self.m_bigger_eyes_apply.setEnabled(True)
-        self.m_thinner_outline_apply.setEnabled(True)
         self.m_action_save.setEnabled(True)
         self.m_action_reset.setEnabled(True)
+        self.m_options.setEnabled(True)
+
         self.m_pic.reset()
         self.m_demo.reset()
         self.check_state()
@@ -184,6 +192,11 @@ class FaceBeautificationGUI(QMainWindow, Ui_FaceBeautificationGUI):
         self.check_state()
         self.m_demo.set_image(self.engine.get_beautified_image())
 
+    def mb_remove_beverage(self):
+        self.engine.apply_remove_beverage()
+        self.check_state()
+        self.m_demo.set_image(self.engine.get_beautified_image())
+
     def check_state(self):
         if self.engine.is_sequence_empty():
             self.m_action_undo.setEnabled(False)
@@ -225,3 +238,9 @@ class FaceBeautificationGUI(QMainWindow, Ui_FaceBeautificationGUI):
 
     def mb_demo_vertical_scroll_range_changed(self):
         self.m_demo_scroll.verticalScrollBar().setValue(self.m_demo.y_value)
+
+    def mouseReleaseEvent(self, event):
+        if event.button() == Qt.XButton1 and self.m_action_undo.isEnabled():
+            self.mb_action_undo()
+        elif event.button() == Qt.XButton2 and self.m_action_redo.isEnabled():
+            self.mb_action_redo()

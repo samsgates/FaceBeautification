@@ -2,6 +2,8 @@ from PyQt5.QtGui import QImage, QPixmap
 import cv2
 import utils
 from ShapeEngine import ShapeEngine
+from BeverageRemoving.Bilateral_filtering import remove_beverage
+
 
 FACE_MODEL_FILE = 'model/face.model'
 KNN_MODEL_FILE = 'model/knn.model'
@@ -123,6 +125,11 @@ class FaceBeautification:
         landmarks_ = self.shape_engine.outline_only(landmarks, landmarks_)
         img_morph = self.shape_engine.face_morphing(img, landmarks, landmarks_)
         self.add_to_sequence(img_morph, landmarks_)
+
+    def apply_remove_beverage(self):
+        img, landmarks = self.current_sequence()
+        img_ = remove_beverage(img)
+        self.add_to_sequence(img_, landmarks)
 
 
 def main():
