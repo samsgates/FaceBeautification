@@ -16,7 +16,7 @@ def get_weight(i, j , k, l, img, coef_d, coef_r):
 
 def Bilateral_filter(img, x, y, w, h):
     """
-        双边滤波器的手动实现
+        双边滤波器的手动实现，现在采用了新的算法
         :param img_path: 图片路径
         :param x: 滤波区域左上角x
         :param y: 滤波区域左上角y
@@ -24,19 +24,23 @@ def Bilateral_filter(img, x, y, w, h):
         :param h: 滤波区域y高度
         :return:
         """
+    p = 50
     img_clip = img[x:x+w,y:y+w,:]
-    img_cliped = cv2.bilateralFilter(src=img_clip, d=0, sigmaColor=100, sigmaSpace=15)
+    img_bilateraled = cv2.bilateralFilter(src=img_clip, d=0, sigmaColor=100, sigmaSpace=15)
+    img_crossed = img_bilateraled - img_clip + 128
+
+    img_blured = cv2.GaussianBlur(img_crossed, (5, 5), 0)
+    img_added = img_clip + 2 * img_blured - 255
+    img_final = (img_clip * (100 - p) + img_added * p) / 100
+    #img_final.copyTo(img_clip)
     cv2.namedWindow('before', 0)
     cv2.resizeWindow('before', 300, 400)
-    cv2.imshow("before", img_clip)
-    cv2.namedWindow('demo',0)
-    cv2.resizeWindow('demo',300,400)
-    cv2.imshow("demo", img_cliped)
+    cv2.imshow("before", img_final)
     cv2.waitKey(0)
 
 def Bilateral_filter_old(img, x, y, w, h, size):
     """
-    双边滤波器的手动实现
+    双边滤波器的手动实现，放弃了
     :param img_path: 图片路径
     :param x: 滤波区域左上角x
     :param y: 滤波区域左上角y
