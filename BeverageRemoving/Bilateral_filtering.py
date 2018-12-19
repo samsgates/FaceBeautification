@@ -26,16 +26,27 @@ def Bilateral_filter(img, x, y, w, h):
         """
     p = 50
     img_clip = img[x:x+w,y:y+w,:]
+    #temp = np.ones(img_clip.shape, dtype="uint8") * 128
+    #import pdb
+    #pdb.set_trace()
     img_bilateraled = cv2.bilateralFilter(src=img_clip, d=0, sigmaColor=100, sigmaSpace=15)
-    img_crossed = img_bilateraled - img_clip + 128
+    img_crossed = img_bilateraled - img_clip
+    img_crossed = img_crossed + 128
 
-    img_blured = cv2.GaussianBlur(img_crossed, (5, 5), 0)
-    img_added = img_clip + 2 * img_blured - 255
-    img_final = (img_clip * (100 - p) + img_added * p) / 100
-    #img_final.copyTo(img_clip)
+    img_blured = cv2.GaussianBlur(img_crossed, (3, 3), 0, 0)
+    img_blured = img_blured * 2
+
+    img_added = img_clip + img_blured
+    img_final_1 = img_clip * ((100 - p) / 100)
+    img_final_2 = img_added * (p / 100)
+    img_final = img_final_1 + img_final_2
+    img_final = img_final.astype('uint8')
     cv2.namedWindow('before', 0)
     cv2.resizeWindow('before', 300, 400)
     cv2.imshow("before", img_final)
+    cv2.namedWindow('before1', 0)
+    cv2.resizeWindow('before1', 300, 400)
+    cv2.imshow("before1", img_bilateraled)
     cv2.waitKey(0)
 
 
@@ -106,5 +117,5 @@ def Bilateral_filter_old(img, x, y, w, h, size):
     plt.show()
 
 if __name__ == '__main__':
-    img = cv2.imread('./lena.jpg')
+    img = cv2.imread('./1.png')
     Bilateral_filter(img, 0, 0, img.shape[0], img.shape[1])
