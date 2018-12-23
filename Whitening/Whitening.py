@@ -14,15 +14,16 @@ def whitening(img):
     img1 = cv2.bitwise_and(img, mask)
     mask = cv2.bitwise_not(mask)
     img2 = cv2.bitwise_and(img, mask)
-    cv2.imshow("src1", img1)
+    # cv2.imshow("src1", img1)
     img3 = cv2.GaussianBlur(img1, (0, 0), 9)
     img1 = cv2.addWeighted(img1, 1.5, img3, -0.5, 0)
     add_temp = np.ones(img1.shape, np.uint8)*40
     img1 = cv2.bitwise_or(img1, img2)
     img1 = cv2.add(img1, add_temp)
-    cv2.imshow("src2", img2)
-    cv2.imshow("src3", img1)
-    cv2.waitKey(0)
+    return img1
+    # cv2.imshow("src2", img2)
+    # cv2.imshow("src3", img1)
+    # cv2.waitKey(0)
 
 def findBiggestContour(contours):
     #import pdb
@@ -52,13 +53,8 @@ def skin_detect(img):
     return mask
 
 
-    #cv2.imshow("src", img)
-    #cv2.waitKey(0)
-
-
-
-
 if __name__ == '__main__':
     img = cv2.imread('./0171_01.jpg')
-
-    whitening(img)
+    img_ = whitening(img)
+    cv2.imshow("img", img_)
+    cv2.waitKey()

@@ -108,6 +108,7 @@ class FaceBeautificationGUI(QMainWindow, Ui_FaceBeautificationGUI):
         self.m_bigger_eyes_apply.clicked.connect(self.mb_bigger_eyes_apply)
         self.m_thinner_outline_apply.clicked.connect(self.mb_thinner_outline_apply)
         self.m_remove_beverage.clicked.connect(self.mb_remove_beverage)
+        self.m_whitening.clicked.connect(self.mb_whitening)
 
         self.m_bigger_eyes_rate.valueChanged.connect(self.display_rate(self.m_bigger_eyes_rate_label))
         self.m_thinner_outline_rate.valueChanged.connect(self.display_rate(self.m_thinner_outline_rate_label))
@@ -194,6 +195,11 @@ class FaceBeautificationGUI(QMainWindow, Ui_FaceBeautificationGUI):
 
     def mb_remove_beverage(self):
         self.engine.apply_remove_beverage()
+        self.check_state()
+        self.m_demo.set_image(self.engine.get_beautified_image())
+
+    def mb_whitening(self):
+        self.engine.apply_whitening()
         self.check_state()
         self.m_demo.set_image(self.engine.get_beautified_image())
 
