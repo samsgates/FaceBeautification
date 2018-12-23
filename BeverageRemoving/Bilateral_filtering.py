@@ -1,5 +1,7 @@
 """
 双边滤波的实现
+Bilateral_filter(img, x, y, w, h)
+返回修改后的图片数组
 """
 import matplotlib.pyplot as plt
 import numpy as np
@@ -22,10 +24,13 @@ def Bilateral_filter(img, x, y, w, h):
         :param y: 滤波区域左上角y
         :param w: 滤波区域x宽度
         :param h: 滤波区域y高度
-        :return:
+        :return:修改后的图片数组
         """
     p = 50
+
     img_clip = img[x:x+w,y:y+w,:]
+
+
     #temp = np.ones(img_clip.shape, dtype="uint8") * 128
     #import pdb
     #pdb.set_trace()
@@ -41,13 +46,8 @@ def Bilateral_filter(img, x, y, w, h):
     img_final_2 = img_added * (p / 100)
     img_final = img_final_1 + img_final_2
     img_final = img_final.astype('uint8')
-    cv2.namedWindow('before', 0)
-    cv2.resizeWindow('before', 300, 400)
-    cv2.imshow("before", img_final)
-    cv2.namedWindow('before1', 0)
-    cv2.resizeWindow('before1', 300, 400)
-    cv2.imshow("before1", img_bilateraled)
-    cv2.waitKey(0)
+    img[x:x + w, y:y + w, :] += img_final
+    return img_final
 
 
 def remove_beverage(img):
@@ -118,4 +118,6 @@ def Bilateral_filter_old(img, x, y, w, h, size):
 
 if __name__ == '__main__':
     img = cv2.imread('./1.png')
-    Bilateral_filter(img, 0, 0, img.shape[0], img.shape[1])
+    img = Bilateral_filter(img, 0, 0, img.shape[0], img.shape[1])
+    cv2.imshow("result", img)
+    cv2.waitKey(0)

@@ -6,9 +6,10 @@ import cv2
 import numpy as np
 
 
-def whitening(img, mask):
+def whitening(img):
     #import pdb
     #pdb.set_trace()
+    mask = skin_detect(img)
     mask = mask.astype('uint8')
     img1 = cv2.bitwise_and(img, mask)
     mask = cv2.bitwise_not(mask)
@@ -49,18 +50,7 @@ def skin_detect(img):
     cr_mask = cr_mask.astype('uint8')
     mask = cv2.bitwise_and(img, cr_mask)
     return mask
-    '''
-    cv2.imshow("src", mask)
-    cv2.waitKey(0)
-    lower = np.array([0, 133, 20])
-    upper = np.array([255, 180, 127])
-    mask = cv2.inRange(img_hsv, lower, upper)
-    _, contours, hierarchy = cv2.findContours(mask, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
-    index = findBiggestContour(contours)
-    output = np.zeros(img.shape)
-    output = cv2.drawContours(output, contours, index, (255,255,255), -1, hierarchy=hierarchy)
-    return output
-    '''
+
 
     #cv2.imshow("src", img)
     #cv2.waitKey(0)
@@ -70,5 +60,5 @@ def skin_detect(img):
 
 if __name__ == '__main__':
     img = cv2.imread('./0171_01.jpg')
-    mask = skin_detect(img)
-    whitening(img, mask)
+
+    whitening(img)
