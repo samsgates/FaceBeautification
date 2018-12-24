@@ -3,7 +3,7 @@ import cv2
 import utils
 from ShapeEngine import ShapeEngine
 from BeverageRemoving.Bilateral_filtering import Bilateral_filter
-from Whitening.Whitening import whitening
+from Whitening.Whitening import Whitening
 
 
 FACE_MODEL_FILE = 'model/face.model'
@@ -136,9 +136,11 @@ class FaceBeautification:
 
     def apply_whitening(self):
         img, landmarks = self.current_sequence()
-        img_ = whitening(img.copy())
+        img_ = Whitening(img.copy(), *self.img_rect)
         self.add_to_sequence(img_, landmarks)
 
+    def apply_facelet(self):
+        pass
 
 def main():
     print(type(cv2.imread('Test/test.jpg')))
