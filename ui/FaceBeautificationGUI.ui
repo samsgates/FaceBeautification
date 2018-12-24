@@ -38,7 +38,7 @@
          <x>0</x>
          <y>-30</y>
          <width>252</width>
-         <height>545</height>
+         <height>580</height>
         </rect>
        </property>
        <property name="sizePolicy">
@@ -250,6 +250,13 @@
             <widget class="QPushButton" name="m_remove_beverage">
              <property name="text">
               <string>Remove Beverage</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QPushButton" name="m_whitening">
+             <property name="text">
+              <string>Whitening</string>
              </property>
             </widget>
            </item>

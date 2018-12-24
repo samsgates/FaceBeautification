@@ -2,7 +2,8 @@ from PyQt5.QtGui import QImage, QPixmap
 import cv2
 import utils
 from ShapeEngine import ShapeEngine
-from BeverageRemoving.Bilateral_filtering import remove_beverage
+from BeverageRemoving.Bilateral_filtering import Bilateral_filter
+from Whitening.Whitening import whitening
 
 
 FACE_MODEL_FILE = 'model/face.model'
@@ -16,6 +17,7 @@ class FaceBeautification:
         self.shape_engine.load_face_models(FACE_MODEL_FILE)
         self.shape_engine.knn_load_model(KNN_MODEL_FILE)
         self.sequence = [-1, []]
+        self.img_rect = None
 
     def current_sequence(self):
         assert 0 <= self.sequence[0] < len(self.sequence[1])
@@ -63,6 +65,7 @@ class FaceBeautification:
             return False
         rect = rectangles[0]
         landmarks = utils.align_face(img, rect)
+        self.img_rect = (rect.left(), rect.top(), rect.width(), rect.height())
         self.clear_sequence()
         self.add_to_sequence(img, landmarks)
         return True
@@ -128,7 +131,12 @@ class FaceBeautification:
 
     def apply_remove_beverage(self):
         img, landmarks = self.current_sequence()
-        img_ = remove_beverage(img)
+        img_ = Bilateral_filter(img.copy(), 0, 0, img.shape[0], img.shape[1])
+        self.add_to_sequence(img_, landmarks)
+
+    def apply_whitening(self):
+        img, landmarks = self.current_sequence()
+        img_ = whitening(img.copy())
         self.add_to_sequence(img_, landmarks)
 
 

@@ -50,10 +50,6 @@ def Bilateral_filter(img, x, y, w, h):
     return img_final
 
 
-def remove_beverage(img):
-    return cv2.bilateralFilter(src=img, d=0, sigmaColor=100, sigmaSpace=15)
-
-
 def Bilateral_filter_old(img, x, y, w, h, size):
     """
     双边滤波器的手动实现，放弃了
