@@ -1,7 +1,7 @@
 """
 双边滤波的实现
 Bilateral_filter(img, x, y, w, h)
-返回修改后的图片数组
+返回修改后的图片数组,建议在整个图片上使用
 """
 import matplotlib.pyplot as plt
 import numpy as np
